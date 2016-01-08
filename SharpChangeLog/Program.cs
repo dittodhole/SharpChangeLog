@@ -86,7 +86,10 @@ namespace SharpChangeLog
             var svnLogArgs = new SvnLogArgs
                              {
                                  StrictNodeHistory = true,
-                                 BaseUri = new Uri(repositoryUri)
+                                 BaseUri = new Uri(repositoryUri),
+                                 Start = SvnRevision.Zero,
+                                 End = SvnRevision.Head,
+                                 Limit = 1
                              };
 
             Collection<SvnLogEventArgs> logItems;
@@ -101,8 +104,7 @@ namespace SharpChangeLog
                 }
             }
 
-            var svnChangeItem = logItems.OrderBy(arg => arg.Revision)
-                                        .FirstOrDefault()
+            var svnChangeItem = logItems.SingleOrDefault()
                 ?.ChangedPaths.FirstOrDefault();
 
             return svnChangeItem;
