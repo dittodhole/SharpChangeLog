@@ -11,7 +11,7 @@ Bare in mind that this is a quick'n'dirty project, so no fail-safe parsing of pa
 
 ## License
 
-SharpChangeLog is published under WTFNMFPL-1.0
+SharpChangeLog is published under [WTFNMFPLv3](http://andreas.niedermair.name/introducing-wtfnmfplv3).
 
 ## Utilities
 
