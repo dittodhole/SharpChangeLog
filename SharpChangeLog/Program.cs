@@ -53,15 +53,26 @@ namespace SharpChangeLog
             }
 
             Console.WriteLine("Getting log for {0} since {1}",
+                              branch.Value,
+                              initialChangeItem.CopyFromRevision);
+            var branchLogItems = Program.GetLogSince(repository,
+                                                     branch,
+                                                     initialChangeItem.CopyFromRevision);
+            var branchIssueIds = branchLogItems.SelectMany(arg => arg.GetIssueIds())
+                                               .Distinct()
+                                               .Select(arg => arg.ToString())
+                                               .ToArray();
+
+            Console.WriteLine("Getting log for {0} since {1}",
                               trunk.Value,
                               initialChangeItem.CopyFromRevision);
             var logItems = Program.GetLogSince(repository,
                                                trunk,
                                                initialChangeItem.CopyFromRevision);
-
             var issueIds = logItems.SelectMany(arg => arg.GetIssueIds())
                                    .Distinct()
                                    .Select(arg => arg.ToString())
+                                   .Except(branchIssueIds)
                                    .ToArray();
 
             Console.WriteLine("Getting the issues for {0} since {1} from {2}",
