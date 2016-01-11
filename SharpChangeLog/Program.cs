@@ -54,7 +54,7 @@ namespace SharpChangeLog
                 return;
             }
 
-            string[] branchIssueIds;
+            long[] branchIssueIds;
             if (ignoreBranchIssues)
             {
                 Console.WriteLine("Getting log for {0} since {1}",
@@ -65,12 +65,11 @@ namespace SharpChangeLog
                                                          initialChangeItem.CopyFromRevision);
                 branchIssueIds = branchLogItems.SelectMany(arg => arg.GetIssueIds())
                                                .Distinct()
-                                               .Select(arg => arg.ToString())
                                                .ToArray();
             }
             else
             {
-                branchIssueIds = new string[0];
+                branchIssueIds = new long[0];
             }
 
             Console.WriteLine("Getting log for {0} since {1}",
@@ -81,9 +80,10 @@ namespace SharpChangeLog
                                                initialChangeItem.CopyFromRevision);
             var issueIds = logItems.SelectMany(arg => arg.GetIssueIds())
                                    .Distinct()
-                                   .Select(arg => arg.ToString())
                                    .Except(branchIssueIds)
                                    .ToArray();
+
+            Array.Sort(issueIds);
 
             Console.WriteLine("Getting the issues for {0} since {1} from {2}",
                               trunk.Value,
@@ -159,14 +159,20 @@ namespace SharpChangeLog
 
         public static IEnumerable<Issue> GetIssues(string redmineHost,
                                                    string redmineApiKey,
-                                                   IEnumerable<string> issueIds)
+                                                   IEnumerable<long> issueIds)
         {
             var redmineManager = new RedmineManager(redmineHost,
                                                     redmineApiKey,
                                                     MimeFormat.json);
             var result = issueIds.AsParallel() // we are doing a .AsParallel here, as the Redmine API is very slow :confused:
-                                 .Select(arg => redmineManager.GetObject<Issue>(arg,
-                                                                                new NameValueCollection()))
+                                 .Select(arg =>
+                                         {
+                                             var issueId = arg.ToString();
+                                             var issue = redmineManager.GetObject<Issue>(issueId,
+                                                                                         new NameValueCollection());
+
+                                             return issue;
+                                         })
                                  .ToArray();
 
             return result;
