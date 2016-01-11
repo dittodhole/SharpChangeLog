@@ -33,6 +33,8 @@ namespace SharpChangeLog
                                                                                   "Specifies the host, which serves the Redmine instance");
             var redmineApiKey = requiredValuesOptionSet.AddRequiredVariable<string>("redmineApiKey",
                                                                                     "Specifies the api key that is used for communication with the Redmine instance");
+            var ignoreBranchIssues = requiredValuesOptionSet.AddVariable<bool>("ignoreBranchIssues",
+                                                                               "Specifies whether issues, comitted to the branch, should be ignored or not. Default is false");
             var consoleManager = new ConsoleManager("ChangeLog Generator",
                                                     requiredValuesOptionSet);
             if (!consoleManager.TryParseOrShowHelp(Console.Out,
@@ -52,16 +54,24 @@ namespace SharpChangeLog
                 return;
             }
 
-            Console.WriteLine("Getting log for {0} since {1}",
-                              branch.Value,
-                              initialChangeItem.CopyFromRevision);
-            var branchLogItems = Program.GetLogSince(repository,
-                                                     branch,
-                                                     initialChangeItem.CopyFromRevision);
-            var branchIssueIds = branchLogItems.SelectMany(arg => arg.GetIssueIds())
+            string[] branchIssueIds;
+            if (ignoreBranchIssues)
+            {
+                Console.WriteLine("Getting log for {0} since {1}",
+                                  branch.Value,
+                                  initialChangeItem.CopyFromRevision);
+                var branchLogItems = Program.GetLogSince(repository,
+                                                         branch,
+                                                         initialChangeItem.CopyFromRevision);
+                branchIssueIds = branchLogItems.SelectMany(arg => arg.GetIssueIds())
                                                .Distinct()
                                                .Select(arg => arg.ToString())
                                                .ToArray();
+            }
+            else
+            {
+                branchIssueIds = new string[0];
+            }
 
             Console.WriteLine("Getting log for {0} since {1}",
                               trunk.Value,
