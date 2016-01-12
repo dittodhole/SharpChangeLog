@@ -45,9 +45,9 @@ namespace SharpChangeLog
 
             Console.WriteLine("Getting the initial revision of {0}",
                               branch.Value);
-            var initialChangeItem = Program.GetInitialChangeItem(repository,
-                                                                 branch);
-            if (initialChangeItem == null)
+            var initialLogItem = Program.GetInitialLogItem(repository,
+                                                           branch);
+            if (initialLogItem == null)
             {
                 Console.WriteLine("Could not get the initial revision of {0}",
                                   branch.Value);
@@ -57,12 +57,13 @@ namespace SharpChangeLog
             long[] branchIssueIds;
             if (ignoreBranchIssues)
             {
-                Console.WriteLine("Getting log for {0} since {1}",
+                Console.WriteLine("Getting log for {0} since {1} ({2})",
                                   branch.Value,
-                                  initialChangeItem.CopyFromRevision);
+                                  initialLogItem.Revision,
+                                  initialLogItem.Time);
                 var branchLogItems = Program.GetLogSince(repository,
                                                          branch,
-                                                         initialChangeItem.CopyFromRevision);
+                                                         initialLogItem.Revision);
                 branchIssueIds = branchLogItems.SelectMany(arg => arg.GetIssueIds())
                                                .Distinct()
                                                .ToArray();
@@ -72,37 +73,50 @@ namespace SharpChangeLog
                 branchIssueIds = new long[0];
             }
 
+            var revision = initialLogItem.ChangedPaths.First()
+                                         .CopyFromRevision;
             Console.WriteLine("Getting log for {0} since {1}",
                               trunk.Value,
-                              initialChangeItem.CopyFromRevision);
+                              revision);
             var logItems = Program.GetLogSince(repository,
                                                trunk,
-                                               initialChangeItem.CopyFromRevision);
-            var issueIds = logItems.SelectMany(arg => arg.GetIssueIds())
-                                   .Distinct()
-                                   .Except(branchIssueIds)
-                                   .ToArray();
+                                               revision);
 
-            Array.Sort(issueIds);
+            var complexIssueIds = logItems.SelectMany(arg => arg.GetIssueIds()
+                                                                .Except(branchIssueIds)
+                                                                .Select(issueId => new
+                                                                                   {
+                                                                                       LogItem = arg,
+                                                                                       IssueId = issueId
+                                                                                   }))
+                                          .OrderBy(arg => arg.IssueId)
+                                          .GroupBy(arg => arg.IssueId)
+                                          .ToDictionary(arg => arg.Key);
 
-            Console.WriteLine("Getting the issues for {0} since {1} from {2}",
+            Console.WriteLine("Getting the issues for {0} since {1} ({3}) from {2}",
                               trunk.Value,
-                              initialChangeItem.CopyFromRevision,
-                              redmineHost.Value);
+                              revision,
+                              redmineHost.Value,
+                              initialLogItem.Time);
             var issues = Program.GetIssues(redmineHost,
                                            redmineApiKey,
-                                           issueIds);
+                                           complexIssueIds.Keys);
 
             issues.ForEach(issue =>
                            {
-                               Console.WriteLine("#{0}: {1}",
+                               Console.WriteLine("#{0}: {1} (assigned to: {2}, commits by: {3})",
                                                  issue.Id,
-                                                 issue.Subject);
+                                                 issue.Subject,
+                                                 issue.AssignedTo?.Name ?? "none",
+                                                 string.Join(", ",
+                                                             complexIssueIds[issue.Id].Select(arg => arg.LogItem)
+                                                                                      .Select(arg => arg.Author)
+                                                                                      .Distinct()));
                            });
         }
 
-        public static SvnChangeItem GetInitialChangeItem(string repositoryUri,
-                                                         string target)
+        public static SvnLogEventArgs GetInitialLogItem(string repositoryUri,
+                                                        string target)
         {
             var svnLogArgs = new SvnLogArgs
                              {
@@ -125,10 +139,9 @@ namespace SharpChangeLog
                 }
             }
 
-            var svnChangeItem = logItems.SingleOrDefault()
-                ?.ChangedPaths.FirstOrDefault();
+            var logItem = logItems.SingleOrDefault();
 
-            return svnChangeItem;
+            return logItem;
         }
 
         public static ICollection<SvnLogEventArgs> GetLogSince(string repositoryUri,
